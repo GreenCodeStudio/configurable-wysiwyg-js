@@ -16,6 +16,11 @@ export default class Editor extends HTMLElement {
         const root = dom.createElementNS(ns, 'document');
         dom.append(root);
         root.append(...[...this.childNodes].flatMap(x => this.customDomToXmlDom(dom, x)))
+
+        const selection = window.getSelection();
+        if (selection.anchorNode == this) {
+            root.append(dom.createElementNS(ns, 'selection'));
+        }
         return dom;
     }
 

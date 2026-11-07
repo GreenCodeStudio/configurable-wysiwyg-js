@@ -1,6 +1,6 @@
 {
     "name": "configurable-wysiwyg",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "description": "Wysiwyg editor that can be configured and can be converted to any format",
     "main": "src/index.js",
     "repository": "https://github.com/GreenCodeStudio/configurable-wysiwyg-js",
