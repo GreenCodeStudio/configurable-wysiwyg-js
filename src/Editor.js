@@ -52,9 +52,24 @@ export default class Editor extends HTMLElement {
             range.setEnd(this.selectAnchorNode, 0);
             selection.removeAllRanges();
             selection.addRange(range);
-
         }
-
+    }
+    loadXml(xml) {
+        const parser = new DOMParser();
+        const dom = parser.parseFromString(xml, 'text/xml');
+        while (this.firstChild) {
+            this.removeChild(this.firstChild);
+        }
+        this.selectAnchorNode = null;
+        this.append(...this.xmlDomToCustomDom(dom));
+        if (this.selectAnchorNode) {
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.setStart(this.selectAnchorNode, 0);
+            range.setEnd(this.selectAnchorNode, 0);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
     }
 
     xmlDomToCustomDom(node) {
