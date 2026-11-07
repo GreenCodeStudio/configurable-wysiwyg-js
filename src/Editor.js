@@ -1,10 +1,14 @@
-const ns = 'https://tmp/'
+import {Placeholder} from "./Placeholder";
+
+const ns = 'https://raw.githubusercontent.com/GreenCodeStudio/configurable-wysiwyg/refs/heads/master/schema.xsd'
 export default class Editor extends HTMLElement {
     constructor() {
         super();
         this.contentEditable = true;
-        this.addEventListener('blur', () => this.reload());
-        this.addEventListener('input', () => this.reload());
+        this.addEventListener('blur', () => this.reload(false));
+        this.addEventListener('input', () => this.reload(true));
+        this.addEventListener('focus', () => this.querySelectorAll('configurable-wysiwyg-placeholder').forEach(x => x.remove()));
+        this.refreshPlaceholder();
     }
 
     getXmlDom() {
@@ -13,6 +17,15 @@ export default class Editor extends HTMLElement {
         dom.append(root);
         root.append(...[...this.childNodes].flatMap(x => this.customDomToXmlDom(dom, x)))
         return dom;
+    }
+
+    get placeholder() {
+        this.attributes['placeholder']?.value;
+    }
+
+    set placeholder(value) {
+        this.setAttribute('placeholder', value);
+        this.refreshPlaceholder();
     }
 
     getXml() {
@@ -26,7 +39,11 @@ export default class Editor extends HTMLElement {
 
     customDomToXmlDom(dom, node) {
         if (node instanceof HTMLElement) {
-            return [...node.childNodes].flatMap(x => this.customDomToXmlDom(dom, x));
+            if(node.tagName=='CONFIGURABLE-WYSIWYG-PLACEHOLDER') {
+             return [];
+            }else {
+                return [...node.childNodes].flatMap(x => this.customDomToXmlDom(dom, x));
+            }
         } else if (node instanceof Text) {
             const selection = window.getSelection();
             if (selection.anchorNode == node) {
@@ -37,7 +54,7 @@ export default class Editor extends HTMLElement {
         }
     }
 
-    reload() {
+    reload(keepSelected) {
         console.log('reloading editor')
         const dom = this.getXmlDom();
         while (this.firstChild) {
@@ -45,7 +62,7 @@ export default class Editor extends HTMLElement {
         }
         this.selectAnchorNode = null;
         this.append(...this.xmlDomToCustomDom(dom));
-        if (this.selectAnchorNode) {
+        if (this.selectAnchorNode &&keepSelected) {
             const selection = window.getSelection();
             const range = document.createRange();
             range.setStart(this.selectAnchorNode, 0);
@@ -53,7 +70,10 @@ export default class Editor extends HTMLElement {
             selection.removeAllRanges();
             selection.addRange(range);
         }
+
+        this.refreshPlaceholder();
     }
+
     loadXml(xml) {
         const parser = new DOMParser();
         const dom = parser.parseFromString(xml, 'text/xml');
@@ -72,6 +92,12 @@ export default class Editor extends HTMLElement {
         }
     }
 
+    clear() {
+        while (this.firstChild) {
+            this.removeChild(this.firstChild);
+        }
+    }
+
     xmlDomToCustomDom(node) {
         if (node instanceof Document) {
             return [...node.childNodes].flatMap(x => this.xmlDomToCustomDom(x));
@@ -86,6 +112,16 @@ export default class Editor extends HTMLElement {
             }
         } else if (node instanceof Text) {
             return [document.createTextNode(node.textContent)];
+        }
+    }
+
+    refreshPlaceholder() {
+        this.querySelectorAll('configurable-wysiwyg-placeholder').forEach(x => x.remove());
+        if (!this.matches(':focus, :focus-within') && this.textContent.trim().length == 0 && this.attributes['placeholder']?.value) {
+            console.log('a')
+            const placeholder = new Placeholder();
+            placeholder.textContent = this.attributes['placeholder'].value;
+            this.append(placeholder);
         }
     }
 }

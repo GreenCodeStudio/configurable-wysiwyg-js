@@ -1,6 +1,7 @@
 import ConfigurableWysiwygEditor from "../src/Editor";
 
 const editor = new ConfigurableWysiwygEditor();
+
 window.editor = editor;
 document.body.append(editor);
 const xml=document.createElement('code');
