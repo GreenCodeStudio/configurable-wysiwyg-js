@@ -1,6 +1,10 @@
 import ConfigurableWysiwygEditor from "../src/Editor";
+import {LineBreak} from "../src/elements/LineBreak";
 
 const editor = new ConfigurableWysiwygEditor();
+
+editor.addAllowedElement(new LineBreak());
+
 
 window.editor = editor;
 document.body.append(editor);

@@ -1,13 +1,20 @@
 import {Placeholder} from "./Placeholder";
+import {mainNamespace} from "./Utils";
 
-const ns = 'https://raw.githubusercontent.com/GreenCodeStudio/configurable-wysiwyg/refs/heads/master/schema.xsd'
+const ns = mainNamespace
 export default class Editor extends HTMLElement {
+    allowedElements = [];
+
     constructor() {
         super();
         this.contentEditable = true;
         this.addEventListener('blur', () => this.reload(false));
-        this.addEventListener('input', () => this.reload(true));
+        // this.addEventListener('input', () => this.reload(true));
         this.addEventListener('focus', () => this.querySelectorAll('configurable-wysiwyg-placeholder').forEach(x => x.remove()));
+        this.addEventListener('keydown', (e) => {
+            const dom = this.getXmlDom();
+
+        });
         this.refreshPlaceholder();
     }
 
@@ -43,14 +50,24 @@ export default class Editor extends HTMLElement {
     }
 
     customDomToXmlDom(dom, node) {
+        for (const allowedElement of this.allowedElements) {
+            const result = allowedElement.customDomToXmlDom(this, dom, node);
+            if (result) {
+                return result;
+            }
+        }
+        const selection = window.getSelection();
         if (node instanceof HTMLElement) {
-            if(node.tagName=='CONFIGURABLE-WYSIWYG-PLACEHOLDER') {
-             return [];
-            }else {
-                return [...node.childNodes].flatMap(x => this.customDomToXmlDom(dom, x));
+            if (node.tagName == 'CONFIGURABLE-WYSIWYG-PLACEHOLDER') {
+                return [];
+            } else {
+                let ret = [...node.childNodes].flatMap(x => this.customDomToXmlDom(dom, x));
+                if (selection.anchorNode == node) {
+                    ret.push(dom.createElementNS(ns, 'selection'));
+                }
+                return ret;
             }
         } else if (node instanceof Text) {
-            const selection = window.getSelection();
             if (selection.anchorNode == node) {
                 return [dom.createTextNode(node.textContent.substring(0, selection.anchorOffset)), dom.createElementNS(ns, 'selection'), dom.createTextNode(node.textContent.substring(selection.anchorOffset))];
             } else {
@@ -67,11 +84,11 @@ export default class Editor extends HTMLElement {
         }
         this.selectAnchorNode = null;
         this.append(...this.xmlDomToCustomDom(dom));
-        if (this.selectAnchorNode &&keepSelected) {
+        if (this.selectAnchorNode && keepSelected) {
             const selection = window.getSelection();
             const range = document.createRange();
             range.setStart(this.selectAnchorNode, 0);
-            range.setEnd(this.selectAnchorNode, 0);
+            range.setEnd(this.selectAnchorNode, 1);
             selection.removeAllRanges();
             selection.addRange(range);
         }
@@ -79,9 +96,7 @@ export default class Editor extends HTMLElement {
         this.refreshPlaceholder();
     }
 
-    loadXml(xml) {
-        const parser = new DOMParser();
-        const dom = parser.parseFromString(xml, 'text/xml');
+    loadXmlDom(dom) {
         while (this.firstChild) {
             this.removeChild(this.firstChild);
         }
@@ -97,6 +112,12 @@ export default class Editor extends HTMLElement {
         }
     }
 
+    loadXml(xml) {
+        const parser = new DOMParser();
+        const dom = parser.parseFromString(xml, 'text/xml');
+        this.loadXmlDom(dom);
+    }
+
     clear() {
         while (this.firstChild) {
             this.removeChild(this.firstChild);
@@ -108,8 +129,15 @@ export default class Editor extends HTMLElement {
             return [...node.childNodes].flatMap(x => this.xmlDomToCustomDom(x));
         }
         if (node instanceof Element) {
+            console.log('xmlDomToCustomDom', node.namespaceURI, node.tagName)
+            for (const allowedElement of this.allowedElements) {
+                if (allowedElement.ns == node.namespaceURI && allowedElement.tagName.toUpperCase() == node.tagName.toUpperCase()) {
+                    return allowedElement.xmlDomToCustomDom(this, node);
+                }
+            }
             if (node.namespaceURI == ns && node.localName == 'selection') {
-                const textNode = document.createTextNode('');
+                console.log('found selection')
+                const textNode = document.createTextNode('x');
                 this.selectAnchorNode = textNode;
                 return [textNode];
             } else {
@@ -128,6 +156,11 @@ export default class Editor extends HTMLElement {
             placeholder.textContent = this.attributes['placeholder'].value;
             this.append(placeholder);
         }
+    }
+
+    addAllowedElement(element) {
+        this.allowedElements.push(element);
+        this.allowedElements.sort((a, b) => (a.priority ?? 0).localeCompare(b.priority ?? 0));
     }
 }
 if ('customElements' in global) {
