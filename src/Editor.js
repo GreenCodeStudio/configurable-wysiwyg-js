@@ -13,6 +13,17 @@ export default class Editor extends HTMLElement {
         this.addEventListener('focus', () => this.querySelectorAll('configurable-wysiwyg-placeholder').forEach(x => x.remove()));
         this.addEventListener('keydown', (e) => {
             const dom = this.getXmlDom();
+            const eventWrapped = {nativeEvent: e, dom: dom, editor: this, isHandled: false};
+            for (const allowedElement of this.allowedElements) {
+                if ('handleEvent' in allowedElement) {
+                    allowedElement.handleEvent(eventWrapped);
+                    if (eventWrapped.isHandled) {
+                        e.preventDefault();
+                        this.loadXmlDom(dom, true);
+                        break;
+                    }
+                }
+            }
 
         });
         this.refreshPlaceholder();
@@ -79,30 +90,23 @@ export default class Editor extends HTMLElement {
     reload(keepSelected) {
         console.log('reloading editor')
         const dom = this.getXmlDom();
+        this.loadXmlDom(dom, keepSelected);
+
+        this.refreshPlaceholder();
+    }
+
+    loadXmlDom(dom, keepSelected = false) {
+        for(const allowedElement of this.allowedElements){
+            if('initDocument' in allowedElement){
+                dom.querySelectorAll('document').forEach(x=>allowedElement.initDocument(this, x));
+            }
+        }
         while (this.firstChild) {
             this.removeChild(this.firstChild);
         }
         this.selectAnchorNode = null;
         this.append(...this.xmlDomToCustomDom(dom));
         if (this.selectAnchorNode && keepSelected) {
-            const selection = window.getSelection();
-            const range = document.createRange();
-            range.setStart(this.selectAnchorNode, 0);
-            range.setEnd(this.selectAnchorNode, 1);
-            selection.removeAllRanges();
-            selection.addRange(range);
-        }
-
-        this.refreshPlaceholder();
-    }
-
-    loadXmlDom(dom) {
-        while (this.firstChild) {
-            this.removeChild(this.firstChild);
-        }
-        this.selectAnchorNode = null;
-        this.append(...this.xmlDomToCustomDom(dom));
-        if (this.selectAnchorNode) {
             const selection = window.getSelection();
             const range = document.createRange();
             range.setStart(this.selectAnchorNode, 0);
@@ -137,7 +141,7 @@ export default class Editor extends HTMLElement {
             }
             if (node.namespaceURI == ns && node.localName == 'selection') {
                 console.log('found selection')
-                const textNode = document.createTextNode('x');
+                const textNode = document.createTextNode('');
                 this.selectAnchorNode = textNode;
                 return [textNode];
             } else {
@@ -160,7 +164,7 @@ export default class Editor extends HTMLElement {
 
     addAllowedElement(element) {
         this.allowedElements.push(element);
-        this.allowedElements.sort((a, b) => (a.priority ?? 0).localeCompare(b.priority ?? 0));
+        this.allowedElements.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
     }
 }
 if ('customElements' in global) {
